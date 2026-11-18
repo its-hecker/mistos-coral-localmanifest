@@ -30,6 +30,9 @@ python3 device/google/coral/faceunlock/tools/apply_framework_fixes.py --check
 python3 device/google/coral/faceunlock/tools/apply_framework_fixes.py --apply
 python3 device/google/coral/faceunlock/tools/apply_framework_fixes.py --check
 
+echo "Preparing MistOS Settings compilation compatibility"
+python3 .repo/local_manifests/tools/repair_mist_settings.py
+
 export WITH_GMS=true
 export MISTOS_MAINTAINER=Hecker
 
