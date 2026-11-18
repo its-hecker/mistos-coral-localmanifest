@@ -94,5 +94,16 @@ if [[ "${TARGET_PRODUCT:-}" != "lineage_coral" ]]; then
     exit 1
 fi
 
+echo "Final MistOS Settings source repair and verification"
+python3 .repo/local_manifests/tools/repair-mist-settings.py
+
+mist_lock_src="packages/apps/Settings/Mistify/src/org/mist/settings/fragments/lockscreen/LockScreen.java"
+if grep -Eq 'Settings\.(Secure\.(LOCK_SCREEN_STACKED_NOTIFICATIONS|LOCK_SCREEN_MOTO_COMPACT_NOTIFICATIONS)|System\.NOTIFICATION_ICONS_CENTER_ALIGNED)' "$mist_lock_src"; then
+    echo "FATAL: MistOS Settings source still references missing framework symbols: $mist_lock_src" >&2
+    exit 1
+fi
+grep -n -A 4 -B 1 'mStackedNotifications = findPreference' "$mist_lock_src"
+echo "VERIFIED: MistOS Settings source uses supported setting key strings"
+
 echo "Starting MistOS coral compilation"
 mist b
