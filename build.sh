@@ -13,6 +13,38 @@ grep -Fq 'MISTOS_MAINTAINER := "Hecker"' device/google/coral/lineage_coral.mk
 grep -Fq 'TARGET_SUPPORTS_GFU := true' device/google/coral/lineage_coral.mk
 grep -Fq 'TARGET_PROVIDES_FACE_UNLOCK_HAL := true' device/google/coral/lineage_coral.mk
 
+echo "Checking MistOS TrickyStore framework compatibility"
+attestation_relative="core/java/android/security/trickystore/AttestationUtils.java"
+attestation_source="frameworks/base/$attestation_relative"
+[[ -f "$attestation_source" ]] || { echo "Missing $attestation_source" >&2; exit 1; }
+
+if ! grep -Fq 'public static void invalidateFallbackBootState()' "$attestation_source" ||
+   ! grep -Fq 'public static boolean isValidPatchLevel(String value)' "$attestation_source"; then
+    echo "Mismatched TrickyStore API; restoring the matching MistOS AttestationUtils.java"
+    mkdir -p out/mist-framework-backups
+    candidate="$(mktemp out/trickystore-attestation.XXXXXX)"
+    trap 'rm -f "$candidate"' EXIT
+
+    if git -C frameworks/base show "HEAD:$attestation_relative" > "$candidate" &&
+       grep -Fq 'public static void invalidateFallbackBootState()' "$candidate" &&
+       grep -Fq 'public static boolean isValidPatchLevel(String value)' "$candidate"; then
+        echo "Using the file from the current frameworks/base checkout HEAD"
+    else
+        echo "Fetching the correct file from Project-Mist-OS/frameworks_base_qpr2 17.0"
+        git -C frameworks/base fetch --no-tags https://github.com/Project-Mist-OS/frameworks_base_qpr2.git refs/heads/17.0
+        git -C frameworks/base show "FETCH_HEAD:$attestation_relative" > "$candidate"
+        grep -Fq 'public static void invalidateFallbackBootState()' "$candidate"
+        grep -Fq 'public static boolean isValidPatchLevel(String value)' "$candidate"
+    fi
+
+    backup="out/mist-framework-backups/AttestationUtils.$(date -u +%Y%m%dT%H%M%SZ).java"
+    cp -p "$attestation_source" "$backup"
+    cp "$candidate" "$attestation_source"
+    rm -f "$candidate"
+    trap - EXIT
+    echo "Restored TrickyStore API compatibility; original backed up to $backup"
+fi
+
 echo "Preparing floral kernel and KernelSU Next"
 git -C kernel/google/msm-4.14 submodule update --init --recursive
 
