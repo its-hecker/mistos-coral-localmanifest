@@ -61,25 +61,65 @@ if old_import in text or old_expr in text:
 else:
     print("[MistOS Settings] Switch preview dependency already handled")
 
-# Missing framework functions must come from the matched MistOS 17.0
-# framework tree. Do not synthesize implementations or silently disable them.
+# A partial MistOS framework checkout can contain the earlier Android 17
+# implementations while Mistify expects the current 17.0 APIs. Restore only
+# incompatible source files from one pinned MistOS framework commit.
+# Back up the previous working-tree copy before replacing it.
+import hashlib
+import shutil
+
+framework_commit = "640ea0b2e8021fc66da1a781397aa00dab24191f"
 checks = {
-    "core/java/com/android/internal/util/mist/PixelDeviceRepository.java":
+    "core/java/com/android/internal/util/mist/PixelDeviceRepository.java": (
+        "404a56d93e4b6488203e556a6f6d6165cde51b9a",
         ["getDefaultPifCodename(", "PIF_DEFAULT_CODENAME", "PICKER_ORDER", "getInitialSdkInt("],
-    "core/java/android/security/trickystore/KeyBoxManager.java":
+    ),
+    "core/java/android/security/trickystore/KeyBoxManager.java": (
+        "d97f9f326aa9fc213cc4264af427d556e16dec08",
         ["validate(", "sanitizeXml("],
-    "core/java/android/security/trickystore/TrickyStoreService.java":
+    ),
+    "core/java/android/security/trickystore/TrickyStoreService.java": (
+        "0894d2f9c421b0ff0b74f6702d1a6655a6331826",
         ["decodeKeybox(", "resolvePatchTemplate(", "isValidPatchValue(", "UNNECESSARY_PACKAGES"],
+    ),
 }
-for rel, names in checks.items():
+for rel, (expected_git_blob, names) in checks.items():
     path = root / "frameworks/base" / rel
     if not path.is_file():
         sys.exit(f"Missing framework source: {path}. Run repo sync frameworks/base")
-    content = path.read_text(encoding="utf-8")
-    missing = [name for name in names if name not in content]
-    if missing:
-        sys.exit(
-            f"Framework source revision is incompatible: {rel} lacks {missing}. "
-            "Run repo sync -c --fail-fast frameworks/base packages/apps/Mistify packages/apps/Settings"
-        )
+    existing = path.read_text(encoding="utf-8")
+    missing = [name for name in names if name not in existing]
+    if not missing:
+        print(f"[MistOS Settings] Framework APIs present: {path.name}")
+        continue
+
+    print(f"[MistOS Settings] Restoring framework APIs in {path.name}: {missing}")
+    url = (
+        "https://raw.githubusercontent.com/Project-Mist-OS/frameworks_base_qpr2/"
+        + framework_commit + "/" + rel
+    )
+    try:
+        with urlopen(url, timeout=45) as response:
+            data = response.read()
+    except Exception as exc:
+        sys.exit(f"Cannot retrieve pinned MistOS framework source {rel}: {exc}")
+
+    # Git blob SHA verifies exact tracked content, not just the URL.
+    blob = hashlib.sha1(
+        b"blob " + str(len(data)).encode("ascii") + b"\0" + data
+    ).hexdigest()
+    if blob != expected_git_blob:
+        sys.exit(f"Unexpected source revision for {rel}: {blob}")
+
+    replacement = data.decode("utf-8")
+    if any(name not in replacement for name in names):
+        sys.exit(f"Downloaded MistOS source is still missing required methods: {rel}")
+
+    backup = root / "out/mistos-settings-compat-backup/frameworks/base" / rel
+    backup.parent.mkdir(parents=True, exist_ok=True)
+    if not backup.exists():
+        shutil.copy2(path, backup)
+    path.write_bytes(data)
+    print(f"[MistOS Settings] Installed matched source; backup at {backup}")
+
 print("[MistOS Settings] UI helpers repaired and framework APIs verified")
