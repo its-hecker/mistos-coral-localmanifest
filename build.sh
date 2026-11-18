@@ -65,6 +65,31 @@ python3 device/google/coral/faceunlock/tools/apply_framework_fixes.py --check
 export WITH_GMS=true
 export MISTOS_MAINTAINER=Hecker
 
+echo "Loading MistOS build environment"
+# Android envsetup scripts are intended to be sourced without errexit: harmless
+# non-zero probes inside upstream setup can otherwise stop this build silently.
+set +e
 source build/envsetup.sh
-mistify coral "${MIST_BUILD_VARIANT:-userdebug}"
+envsetup_status=$?
+set -e
+
+if ! declare -F mistify >/dev/null || ! declare -F mist >/dev/null; then
+    echo "MistOS environment initialization failed (status: $envsetup_status)" >&2
+    exit 1
+fi
+if (( envsetup_status != 0 )); then
+    echo "Warning: envsetup returned $envsetup_status; required build functions loaded" >&2
+fi
+
+echo "Selecting MistOS coral ${MIST_BUILD_VARIANT:-userdebug} target"
+if ! mistify coral "${MIST_BUILD_VARIANT:-userdebug}"; then
+    echo "MistOS coral target selection failed" >&2
+    exit 1
+fi
+if [[ "${TARGET_PRODUCT:-}" != "lineage_coral" ]]; then
+    echo "Unexpected TARGET_PRODUCT after mistify: ${TARGET_PRODUCT:-<unset>}" >&2
+    exit 1
+fi
+
+echo "Starting MistOS coral compilation"
 mist b
