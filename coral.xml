@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote name="hecker-mist" fetch="https://github.com/its-hecker" />
+  <remote name="hecker-lineage" fetch="https://github.com/LineageOS" />
+
+  <project name="mistos-coral-device-tree"
+           path="device/google/coral"
+           remote="hecker-mist"
+           revision="main" />
+
+  <project name="mistos-coral-vendor"
+           path="vendor/google/coral"
+           remote="hecker-mist"
+           revision="main" />
+
+  <project name="mistos-coral-kernel"
+           path="kernel/google/msm-4.14"
+           remote="hecker-mist"
+           revision="main" />
+
+  <project name="vendor_lunaris_dolby"
+           path="vendor/lunaris/dolby"
+           remote="hecker-mist"
+           revision="main" />
+
+  <project name="android_packages_apps_ElmyraService"
+           path="packages/apps/ElmyraService"
+           remote="hecker-lineage"
+           revision="lineage-24.0" />
+</manifest>
