@@ -42,10 +42,37 @@ python3 .repo/local_manifests/tools/repair_mist_settings.py
 export WITH_GMS=true
 export MISTOS_MAINTAINER=Hecker
 
+# Android envsetup.sh and ROM build frontends expect ordinary interactive Bash
+# options. In particular, internal pipelines may return SIGPIPE (141) when
+# pipefail + errexit are inherited, even while initialization is successful.
+# Keep strict failure checking for the preparation above, then explicitly
+# check the return status of each Android build step below.
+trap - ERR
+set +e
+set +u
+set +o pipefail
+
 echo "[MistOS] Sourcing Android environment"
 source build/envsetup.sh
+setup_status=$?
+if (( setup_status != 0 )); then
+    echo "[MistOS] Android environment setup failed (exit ${setup_status})" >&2
+    exit "$setup_status"
+fi
+
 echo "[MistOS] Selecting coral ${MIST_BUILD_VARIANT:-userdebug}"
 mistify coral "${MIST_BUILD_VARIANT:-userdebug}"
+selection_status=$?
+if (( selection_status != 0 )); then
+    echo "[MistOS] mistify coral failed (exit ${selection_status})" >&2
+    exit "$selection_status"
+fi
+
 echo "[MistOS] Starting ROM compilation"
 mist b
+build_status=$?
+if (( build_status != 0 )); then
+    echo "[MistOS] ROM compilation failed (exit ${build_status})" >&2
+    exit "$build_status"
+fi
 echo "[MistOS] Compilation command completed successfully"
