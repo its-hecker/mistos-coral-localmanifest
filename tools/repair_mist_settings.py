@@ -122,4 +122,21 @@ for rel, (expected_git_blob, names) in checks.items():
     path.write_bytes(data)
     print(f"[MistOS Settings] Installed matched source; backup at {backup}")
 
+# Pin the nullable result type explicitly. Older Kotlin builds can cascade into
+# misleading ELVIS_CALL inference errors when a framework API was previously missing.
+dialog_path = settings / "Mistify/src/org/mist/settings/fragments/miscellaneous/TrickyStoreContent.kt"
+if dialog_path.is_file():
+    dialog_text = dialog_path.read_text(encoding="utf-8")
+    before = "    val resolved = remember(text) {"
+    after = "    val resolved: String? = remember(text) {"
+    if before in dialog_text:
+        dialog_path.write_text(dialog_text.replace(before, after, 1), encoding="utf-8")
+        print("[MistOS Settings] Explicitly typed TrickyStore patch-date resolution")
+    elif after in dialog_text:
+        print("[MistOS Settings] TrickyStore patch-date resolution already typed")
+    else:
+        sys.exit("Unexpected TrickyStoreContent.kt; refusing to modify it")
+else:
+    sys.exit(f"Missing MistOS TrickyStore content: {dialog_path}")
+
 print("[MistOS Settings] UI helpers repaired and framework APIs verified")
