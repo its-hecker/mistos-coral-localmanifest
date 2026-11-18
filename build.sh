@@ -45,6 +45,9 @@ if ! grep -Fq 'public static void invalidateFallbackBootState()' "$attestation_s
     echo "Restored TrickyStore API compatibility; original backed up to $backup"
 fi
 
+echo "Applying MistOS lock-screen Settings key compatibility fix"
+python3 .repo/local_manifests/tools/repair-mist-settings.py
+
 echo "Preparing floral kernel and KernelSU Next"
 git -C kernel/google/msm-4.14 submodule update --init --recursive
 
