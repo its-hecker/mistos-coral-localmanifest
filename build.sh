@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+mist_build_error() {
+    local status="$1" line="$2" command="$3"
+    printf '[MistOS] Build command failed (exit %s) at line %s: %s\n' "$status" "$line" "$command" >&2
+}
+trap 'mist_build_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
+
 [[ -f build/envsetup.sh ]] || { echo "Run from the MistOS Android 17 checkout root" >&2; exit 1; }
 [[ -f device/google/coral/lineage_coral.mk ]] || { echo "MistOS coral device tree missing" >&2; exit 1; }
 [[ -f vendor/google/coral/coral-vendor.mk ]] || { echo "Coral vendor sources missing" >&2; exit 1; }
@@ -36,6 +42,10 @@ python3 .repo/local_manifests/tools/repair_mist_settings.py
 export WITH_GMS=true
 export MISTOS_MAINTAINER=Hecker
 
+echo "[MistOS] Sourcing Android environment"
 source build/envsetup.sh
+echo "[MistOS] Selecting coral ${MIST_BUILD_VARIANT:-userdebug}"
 mistify coral "${MIST_BUILD_VARIANT:-userdebug}"
+echo "[MistOS] Starting ROM compilation"
 mist b
+echo "[MistOS] Compilation command completed successfully"
